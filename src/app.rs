@@ -61,7 +61,7 @@ impl eframe::App for TemplateApp {
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn async update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
@@ -105,9 +105,9 @@ impl eframe::App for TemplateApp {
                         let f = rfd::AsyncFileDialog::new().pick_file();
                         let mut v = match f.await {
                             Ok(out) =>out,
-                            Err() => "read error,read error".as_bytes(),
-                        }
-                        let mut s = match std::str::from_utf8(&v.unwrap().read()) {
+                            Err(_) => "read error,read error".as_bytes(),
+                        };
+                        let mut s = match std::str::from_utf8(&v.read()) {
                             Ok(v) =>v,
                             Err(e) => "ERROR",
                         }.to_string(); 
