@@ -1,20 +1,38 @@
+use std::{fs::File, io::Read};
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
+use crate::card;
+use eframe::egui;
+use egui::Button;
+use egui::TextBuffer;
+
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
     // Example stuff:
-    label: String,
+    word: String,
+    definition: String,
 
     #[serde(skip)] // This how you opt-out of serialization of a field
-    value: f32,
+    total: i32,
+    known: i32,
+    mastered: i32,
+    #[serde(skip)]
+    words: Vec<card::Card>,
+    index: usize,
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
         Self {
             // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
+            word: "".to_owned(),
+            definition: "".to_owned(),
+            total: 100,
+            known: 0,
+            mastered: 0,
+            words: Vec::new(),
+            index: 0
         }
     }
 }
@@ -30,7 +48,7 @@ impl TemplateApp {
         if let Some(storage) = cc.storage {
             return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         }
-
+        
         Default::default()
     }
 }
@@ -49,43 +67,70 @@ impl eframe::App for TemplateApp {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
 
-            egui::menu::bar(ui, |ui| {
-                // NOTE: no File->Quit on web pages!
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                    });
-                    ui.add_space(16.0);
-                }
-
+            ui.horizontal(|ui| {
+                ui.heading("Vector Notes");
                 egui::widgets::global_dark_light_mode_buttons(ui);
-            });
+            })
+            
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ctx, |ui: &mut egui::Ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("eframe template");
+            ui.heading("eframe templat");
 
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(&mut self.label);
+            ui.horizontal(|ui: &mut egui::Ui| {
+                ui.vertical( |ui:&mut egui::Ui|{
+                    ui.label("Word: ");
+                    ui.text_edit_singleline(&mut self.word);
+                    ui.label("Definition: ");
+                    ui.text_edit_singleline(&mut self.definition);
+                });
+                ui.vertical_centered( |ui: &mut egui::Ui|{
+                    if ui.add(egui::Button::new("Add")).clicked(){
+                    self.words.push(card::Card {word: self.word.to_owned(),definition: self.definition.to_owned(), showing: true});
+                    self.word = String::from("");
+                    self.definition = String::from("");
+                    self.total += 1;
+            
+
+                    }
+                    
+                    if ui.add(egui::Button::new("Clea")).clicked(){
+                        self.words = Vec::new();
+                        self.total = 0;
+                    }
+                    if ui.add(egui::Button::new("file")).clicked(){
+                        let s = rfd::FileDialog::new().pick_file().unwrap();
+                        println!("{:?}",s );
+                        let mut file = match File::open(s.as_path()) {
+                            Ok(file) => file,
+                            Err(why) => panic!("{}",why),
+                        };
+                        let mut e: String = String::new();
+                        file.read_to_string(&mut e).ok();
+                        e.lines().for_each(|line| {
+                            if line != "".as_str() {
+                                let s:Vec<&str> = line.split(",").collect();
+                                self.words.push(card::Card {word: s.get(0).unwrap().to_string(), definition: s.get(1).unwrap().to_string(), showing: true})
+                            }
+                        });
+                    }
+                    });
+                    
+                
             });
 
-            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                self.value += 1.0;
-            }
+            
 
             ui.separator();
-
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/master/",
-                "Source code."
-            ));
-
+            let  i = self.words.get_mut(self.index);
+            ui.vertical_centered(|ui: &mut egui::Ui|{
+                i.unwrap_or(&mut card::Card{word: String::from("ERROR"), definition: String::from("ERROR"), showing: true}).render(ui);
+                ui.horizontal_centered(|ui: &mut egui::Ui|{
+                    if ui.add(Button::new("next")).clicked() {self.index += 1;}
+                    if ui.add(Button::new("previus")).clicked() {self.index -= 1;}
+                })
+            });
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 powered_by_egui_and_eframe(ui);
                 egui::warn_if_debug_build(ui);
