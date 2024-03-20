@@ -6,6 +6,7 @@ use eframe::egui;
 use egui::Button;
 use egui::TextBuffer;
 use futures::executor::block_on;
+use tokio::io::AsyncReadExt;
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
@@ -101,8 +102,12 @@ impl eframe::App for TemplateApp {
                     }
                     if ui.add(egui::Button::new("file")).clicked(){
                         //let s = rfd::FileDialog::new().pick_file().unwrap();
-                        let f = block_on(rfd::AsyncFileDialog::new().pick_file());
-                        let mut s = match std::str::from_utf8(&f.unwrap().read()) {
+                        let f = rfd::AsyncFileDialog::new().pick_file();
+                        let mut v = match f.await {
+                            Ok(out) =>out,
+                            Err() => "read error,read error".as_bytes(),
+                        }
+                        let mut s = match std::str::from_utf8(&v.unwrap().read()) {
                             Ok(v) =>v,
                             Err(e) => "ERROR",
                         }.to_string(); 
