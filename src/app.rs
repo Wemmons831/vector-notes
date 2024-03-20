@@ -5,7 +5,7 @@ use crate::card;
 use eframe::egui;
 use egui::Button;
 use egui::TextBuffer;
-
+use futures::executor::block_on;
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
@@ -100,18 +100,14 @@ impl eframe::App for TemplateApp {
                         self.total = 0;
                     }
                     if ui.add(egui::Button::new("file")).clicked(){
-                        let s = rfd::FileDialog::new().pick_file().unwrap();
-                        println!("{:?}",s );
-                        let mut file = match File::open(s.as_path()) {
-                            Ok(file) => file,
-                            Err(why) => panic!("{}",why),
-                        };
-                        let mut e: String = String::new();
-                        file.read_to_string(&mut e).ok();
-                        e.lines().for_each(|line| {
+                        //let s = rfd::FileDialog::new().pick_file().unwrap();
+                        let f = block_on(rfd::AsyncFileDialog::new().pick_file());
+                        let mut s = f.unwrap().read();
+                        
+                        s.lines().for_each(|line| {
                             if line != "".as_str() {
-                                let s:Vec<&str> = line.split(",").collect();
-                                self.words.push(card::Card {word: s.get(0).unwrap().to_string(), definition: s.get(1).unwrap().to_string(), showing: true})
+                                let o:Vec<&str> = line.split(",").collect();
+                                self.words.push(card::Card {word: o.get(0).unwrap().to_string(), definition: o.get(1).unwrap().to_string(), showing: true})
                             }
                         });
                     }
