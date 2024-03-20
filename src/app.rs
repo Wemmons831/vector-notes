@@ -101,8 +101,8 @@ impl eframe::App for TemplateApp {
                     }
                     if ui.add(egui::Button::new("file")).clicked(){
                         //let s = rfd::FileDialog::new().pick_file().unwrap();
-                        let f = block_on(rfd::AsyncFileDialog::new().pick_file());
-                        let mut s = match std::str::from_utf8(&f.unwrap().read()) {
+                        let f = rfd::AsyncFileDialog::new().pick_file();
+                        let mut s = match std::str::from_utf8(&block_on(f.unwrap().read())) {
                             Ok(v) =>v,
                             Err(e) => "ERROR",
                         }.to_string(); 
