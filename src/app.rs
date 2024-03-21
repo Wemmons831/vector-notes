@@ -6,7 +6,9 @@ use eframe::egui;
 use egui::Button;
 use egui::TextBuffer;
 use futures::executor::block_on;
-
+use wasm_bindgen_futures::spawn_local;
+use std::sync::{Mutex, Arc};
+use lazy_static;
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
@@ -23,7 +25,12 @@ pub struct TemplateApp {
     #[serde(skip)]
     index: usize,
 }
-
+struct SharedData {
+    value: String,
+}
+lazy_static::lazy_static! {
+    static ref SHARED_DATA: Mutex<SharedData> = Mutex::new(SharedData { value: String::from("") });
+}
 impl Default for TemplateApp {
     fn default() -> Self {
         Self {
@@ -104,21 +111,42 @@ impl eframe::App for TemplateApp {
                     if ui.add(egui::Button::new("file")).clicked(){
                         //let s = rfd::FileDialog::new().pick_file().unwrap();
                         
+                        #[cfg(not(target_arch = "wasm32"))]
                         let v = block_on(rfd::AsyncFileDialog::new().pick_file()).unwrap();
+                        #[cfg(not(target_arch = "wasm32"))]{
                         let s = match String::from_utf8(block_on(v.read())) {
                             Ok(e) =>e,
                             Err(e) => panic!("failed: {}", e)
                         };
-                        s.lines().for_each(|line| {
+                        let mut data = SHARED_DATA.lock().unwrap();
+                        data.value = s;
+                        }
+                        
+                        
+                        #[cfg(target_arch = "wasm32")]{
+                        spawn_local( async {
+                            let v = rfd::AsyncFileDialog::new().pick_file();
+                            let s = match String::from_utf8(v.await.unwrap().read().await) {
+                                Ok(e) =>e,
+                                Err(e) => panic!("failed: {}", e)
+                            };
+                            let mut data = SHARED_DATA.lock().unwrap();
+                            data.value = s;
+                        });
+                        }
+                        
+                    }
+                    });
+                    
+                let mut data= SHARED_DATA.lock().unwrap();
+                if data.value != ""{
+                    data.value.lines().for_each(|line| {
                             if line != "".as_str() {
                                 let s:Vec<&str> = line.split(",").collect();
                                 self.words.push(card::Card {word: s.get(0).unwrap().to_string(), definition: s.get(1).unwrap().to_string(), showing: true})
                             }
                         });
-                    }
-                    });
-                    
-                
+                } 
             });
 
             
@@ -137,6 +165,7 @@ impl eframe::App for TemplateApp {
                 egui::warn_if_debug_build(ui);
             });
         });
+        
     }
 }
 
