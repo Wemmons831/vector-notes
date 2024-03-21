@@ -1,10 +1,11 @@
-use std::{fs::File, io::Read};
+
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 use crate::card;
 use eframe::egui;
 use egui::Button;
 use egui::TextBuffer;
+use futures::executor::block_on;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -19,6 +20,7 @@ pub struct TemplateApp {
     mastered: i32,
     #[serde(skip)]
     words: Vec<card::Card>,
+    #[serde(skip)]
     index: usize,
 }
 
@@ -60,7 +62,7 @@ impl eframe::App for TemplateApp {
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(& mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
@@ -100,15 +102,14 @@ impl eframe::App for TemplateApp {
                         self.total = 0;
                     }
                     if ui.add(egui::Button::new("file")).clicked(){
-                        let s = rfd::FileDialog::new().pick_file().unwrap();
-                        println!("{:?}",s );
-                        let mut file = match File::open(s.as_path()) {
-                            Ok(file) => file,
-                            Err(why) => panic!("{}",why),
+                        //let s = rfd::FileDialog::new().pick_file().unwrap();
+                        
+                        let v = block_on(rfd::AsyncFileDialog::new().pick_file()).unwrap();
+                        let s = match String::from_utf8(block_on(v.read())) {
+                            Ok(e) =>e,
+                            Err(e) => panic!("failed: {}", e)
                         };
-                        let mut e: String = String::new();
-                        file.read_to_string(&mut e).ok();
-                        e.lines().for_each(|line| {
+                        s.lines().for_each(|line| {
                             if line != "".as_str() {
                                 let s:Vec<&str> = line.split(",").collect();
                                 self.words.push(card::Card {word: s.get(0).unwrap().to_string(), definition: s.get(1).unwrap().to_string(), showing: true})
