@@ -8,6 +8,7 @@ use egui::TextBuffer;
 use futures::executor::block_on;
 use wasm_bindgen_futures::spawn_local;
 use std::sync::{Mutex, Arc};
+
 use lazy_static;
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -24,6 +25,7 @@ pub struct TemplateApp {
     words: Vec<card::Card>,
     #[serde(skip)]
     index: usize,
+    latex_example: String,
 }
 struct SharedData {
     value: String,
@@ -41,7 +43,8 @@ impl Default for TemplateApp {
             known: 0,
             mastered: 0,
             words: Vec::new(),
-            index: 0
+            index: 0,
+            latex_example: "".to_string(),
         }
     }
 }
@@ -51,6 +54,7 @@ impl TemplateApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
+       
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
@@ -96,7 +100,7 @@ impl eframe::App for TemplateApp {
                 });
                 ui.vertical_centered( |ui: &mut egui::Ui|{
                     if ui.add(egui::Button::new("Add")).clicked(){
-                    self.words.push(card::Card {word: self.word.to_owned(),definition: self.definition.to_owned(), showing: true});
+                    self.words.push(card::Card::new(self.word.to_owned(), self.definition.to_owned()));
                     self.word = String::from("");
                     self.definition = String::from("");
                     self.total += 1;
@@ -143,7 +147,7 @@ impl eframe::App for TemplateApp {
                     data.value.lines().for_each(|line| {
                             if line != "".as_str() {
                                 let s:Vec<&str> = line.split(",").collect();
-                                self.words.push(card::Card {word: s.get(0).unwrap().to_string(), definition: s.get(1).unwrap().to_string(), showing: true})
+                                self.words.push(card::Card::new(s.get(0).unwrap().to_string(),s.get(1).unwrap().to_string()));
                             }
                         });
                 } 
@@ -153,13 +157,9 @@ impl eframe::App for TemplateApp {
 
             ui.separator();
             let  i = self.words.get_mut(self.index);
-            ui.vertical_centered(|ui: &mut egui::Ui|{
-                i.unwrap_or(&mut card::Card{word: String::from("ERROR"), definition: String::from("ERROR"), showing: true}).render(ui);
-                ui.horizontal_centered(|ui: &mut egui::Ui|{
-                    if ui.add(Button::new("next")).clicked() {self.index += 1;}
-                    if ui.add(Button::new("previus")).clicked() {self.index -= 1;}
-                })
-            });
+           
+            i.unwrap_or(&mut card::Card::new( String::from("ERROR"), String::from("ERROR"))).render(ui,&mut self.index);
+            
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 powered_by_egui_and_eframe(ui);
                 egui::warn_if_debug_build(ui);
